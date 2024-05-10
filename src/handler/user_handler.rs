@@ -1,16 +1,34 @@
 use crate::{
     models::users_model::NewUser,
     services::users::{IUserRepository, UserService},
-    shared::response::{Meta, RequestPaginationParam, ResponseBody, ResponseBodyWithPagination},
+    shared::{
+        middleware::JWT,
+        response::{
+            Meta, NetworkResponse, RequestPaginationParam, ResponseBody, ResponseBodyWithPagination,
+        },
+    },
 };
 use rocket::{get, post, serde::json::Json, State};
-use serde_json::Value;
 
 #[get("/users?<params..>")]
 pub async fn get_users(
     user_service: &State<UserService>,
     params: Option<RequestPaginationParam>,
-) -> Json<Value> {
+    key: Result<JWT, String>,
+) -> NetworkResponse {
+    let _key = match key {
+        Ok(key) => key,
+        Err(err) => {
+            let response = ResponseBody {
+                status: rocket::http::Status::Unauthorized.code,
+                message: err,
+                data: Some(()),
+            };
+
+            return NetworkResponse::Unauthorized(serde_json::json!(&response));
+        }
+    };
+
     let mut new_param = RequestPaginationParam { page: 1, limit: 10 };
 
     if let Some(params) = params {
@@ -38,7 +56,7 @@ pub async fn get_users(
                 data: res,
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::Created(serde_json::json!(&response))
         }
         Err(e) => {
             let response = ResponseBody {
@@ -47,13 +65,16 @@ pub async fn get_users(
                 data: Some(()),
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::InternalServerError(serde_json::json!(&response))
         }
     }
 }
 
 #[post("/users", data = "<user>")]
-pub async fn create_user(user_service: &State<UserService>, user: Json<NewUser>) -> Json<Value> {
+pub async fn create_user(
+    user_service: &State<UserService>,
+    user: Json<NewUser>,
+) -> NetworkResponse {
     let result = user_service.create_user(user.into_inner()).await;
 
     match result {
@@ -64,7 +85,7 @@ pub async fn create_user(user_service: &State<UserService>, user: Json<NewUser>)
                 data: res,
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::Created(serde_json::json!(&response))
         }
         Err(e) => {
             let response = ResponseBody {
@@ -73,7 +94,7 @@ pub async fn create_user(user_service: &State<UserService>, user: Json<NewUser>)
                 data: Some(()),
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::InternalServerError(serde_json::json!(&response))
         }
     }
 }
@@ -83,7 +104,7 @@ pub async fn update_user(
     user_service: &State<UserService>,
     user_id: i32,
     user: Json<NewUser>,
-) -> Json<Value> {
+) -> NetworkResponse {
     let result = user_service.update_user(user_id, user.into_inner()).await;
 
     match result {
@@ -94,7 +115,7 @@ pub async fn update_user(
                 data: res,
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::Created(serde_json::json!(&response))
         }
         Err(e) => {
             let response = ResponseBody {
@@ -103,13 +124,13 @@ pub async fn update_user(
                 data: Some(()),
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::InternalServerError(serde_json::json!(&response))
         }
     }
 }
 
 #[delete("/users/<user_id>")]
-pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> Json<Value> {
+pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> NetworkResponse {
     let result = user_service.delete_user(user_id).await;
 
     match result {
@@ -121,7 +142,7 @@ pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> Jso
                     data: res,
                 };
 
-                Json(serde_json::json!(&response))
+                NetworkResponse::Created(serde_json::json!(&response))
             } else {
                 let response = ResponseBody {
                     status: rocket::http::Status::NotFound.code,
@@ -129,7 +150,7 @@ pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> Jso
                     data: res,
                 };
 
-                Json(serde_json::json!(&response))
+                NetworkResponse::NotFound(serde_json::json!(&response))
             }
         }
         Err(e) => {
@@ -139,7 +160,7 @@ pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> Jso
                 data: Some(()),
             };
 
-            Json(serde_json::json!(&response))
+            NetworkResponse::InternalServerError(serde_json::json!(&response))
         }
     }
 }

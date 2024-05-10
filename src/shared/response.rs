@@ -1,5 +1,6 @@
 use rocket::serde::Serialize;
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
@@ -31,4 +32,19 @@ pub struct Meta {
 pub struct RequestPaginationParam {
     pub page: i64,
     pub limit: i64,
+}
+
+
+#[derive(Responder)]
+pub enum NetworkResponse {
+    #[response(status = 201)]
+    Created(Value),
+    #[response(status = 400)]
+    BadRequest(Value),
+    #[response(status = 401)]
+    Unauthorized(Value),
+    #[response(status = 404)]
+    NotFound(Value),
+    #[response(status = 500)]
+    InternalServerError(Value),
 }

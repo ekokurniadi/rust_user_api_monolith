@@ -7,12 +7,12 @@ use services::users::{IUserRepository, UserService};
 
 use crate::db::init_pool;
 mod db;
+mod handler;
 mod models;
+mod routes;
 mod schema;
 mod services;
-mod handler;
 mod shared;
-mod routes;
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
