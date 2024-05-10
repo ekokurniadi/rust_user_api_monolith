@@ -1,8 +1,8 @@
 use crate::{
-    models::users_model::NewUser,
+    models::users_model::{LoginUser, NewUser},
     services::users::{IUserRepository, UserService},
     shared::{
-        middleware::JWT,
+        middleware::{create_jwt, JWT},
         response::{
             Meta, NetworkResponse, RequestPaginationParam, ResponseBody, ResponseBodyWithPagination,
         },
@@ -16,7 +16,7 @@ pub async fn get_users(
     params: Option<RequestPaginationParam>,
     key: Result<JWT, String>,
 ) -> NetworkResponse {
-    let _key = match key {
+    match key {
         Ok(key) => key,
         Err(err) => {
             let response = ResponseBody {
@@ -74,7 +74,20 @@ pub async fn get_users(
 pub async fn create_user(
     user_service: &State<UserService>,
     user: Json<NewUser>,
+    key: Result<JWT, String>,
 ) -> NetworkResponse {
+    match key {
+        Ok(key) => key,
+        Err(err) => {
+            let response = ResponseBody {
+                status: rocket::http::Status::Unauthorized.code,
+                message: err,
+                data: Some(()),
+            };
+
+            return NetworkResponse::Unauthorized(serde_json::json!(&response));
+        }
+    };
     let result = user_service.create_user(user.into_inner()).await;
 
     match result {
@@ -104,7 +117,20 @@ pub async fn update_user(
     user_service: &State<UserService>,
     user_id: i32,
     user: Json<NewUser>,
+    key: Result<JWT, String>,
 ) -> NetworkResponse {
+    match key {
+        Ok(key) => key,
+        Err(err) => {
+            let response = ResponseBody {
+                status: rocket::http::Status::Unauthorized.code,
+                message: err,
+                data: Some(()),
+            };
+
+            return NetworkResponse::Unauthorized(serde_json::json!(&response));
+        }
+    };
     let result = user_service.update_user(user_id, user.into_inner()).await;
 
     match result {
@@ -130,7 +156,23 @@ pub async fn update_user(
 }
 
 #[delete("/users/<user_id>")]
-pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> NetworkResponse {
+pub async fn delete_user(
+    user_service: &State<UserService>,
+    user_id: i32,
+    key: Result<JWT, String>,
+) -> NetworkResponse {
+    match key {
+        Ok(key) => key,
+        Err(err) => {
+            let response = ResponseBody {
+                status: rocket::http::Status::Unauthorized.code,
+                message: err,
+                data: Some(()),
+            };
+
+            return NetworkResponse::Unauthorized(serde_json::json!(&response));
+        }
+    };
     let result = user_service.delete_user(user_id).await;
 
     match result {
@@ -162,5 +204,44 @@ pub async fn delete_user(user_service: &State<UserService>, user_id: i32) -> Net
 
             NetworkResponse::InternalServerError(serde_json::json!(&response))
         }
+    }
+}
+
+#[post("/login", data = "<user>")]
+pub async fn login_user(
+    user_service: &State<UserService>,
+    user: Json<LoginUser>,
+) -> NetworkResponse {
+    let result = user_service.login(user.into_inner()).await;
+
+    match result {
+        Ok(res) => {
+            let token = create_jwt(res.id);
+            let response = ResponseBody {
+                status: rocket::http::Status::Ok.code,
+                message: "Login user successfuly".to_string(),
+                data: token.unwrap(),
+            };
+
+            NetworkResponse::Created(serde_json::json!(&response))
+        }
+        Err(err) => match err {
+            diesel::result::Error::NotFound => {
+                let response = ResponseBody {
+                    status: rocket::http::Status::NotFound.code,
+                    message: err.to_string(),
+                    data: Some(()),
+                };
+                return NetworkResponse::NotFound(serde_json::json!(&response));
+            }
+            _ => {
+                let response = ResponseBody {
+                    status: rocket::http::Status::InternalServerError.code,
+                    message: err.to_string(),
+                    data: Some(()),
+                };
+                return NetworkResponse::InternalServerError(serde_json::json!(&response));
+            }
+        },
     }
 }

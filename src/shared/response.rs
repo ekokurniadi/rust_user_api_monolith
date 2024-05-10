@@ -37,7 +37,7 @@ pub struct RequestPaginationParam {
 
 #[derive(Responder)]
 pub enum NetworkResponse {
-    #[response(status = 201)]
+    #[response(status = 200)]
     Created(Value),
     #[response(status = 400)]
     BadRequest(Value),

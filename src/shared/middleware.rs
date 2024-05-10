@@ -74,7 +74,7 @@ pub fn create_jwt(id: i32) -> Result<String, Error> {
 
     let secret = env::var("SECRET_KEY").expect("SECRET_KEY must be set.");
 
-    let expiration = Utc::now().checked_add_signed(chrono::Duration::seconds(60)).expect("Invalid timestamp").timestamp();
+    let expiration = Utc::now().checked_add_signed(chrono::Duration::minutes(60)).expect("Invalid timestamp").timestamp();
     let claims = Claims {
         subject_id: id,
         exp: expiration as usize

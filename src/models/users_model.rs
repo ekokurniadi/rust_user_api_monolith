@@ -9,11 +9,19 @@ pub struct Users{
     pub id:i32,
     pub email:String,
     pub name:String,
+    pub password:Option<String>
 }
 
 #[derive(Deserialize)]
 pub struct NewUser{
     pub email:String,
     pub name:String,
+    pub password:Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct LoginUser{
+    pub email:String,
+    pub password:String,
 }
 

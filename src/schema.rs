@@ -5,5 +5,6 @@ diesel::table! {
         id -> Int4,
         email -> Varchar,
         name -> Varchar,
+        password -> Nullable<Varchar>,
     }
 }

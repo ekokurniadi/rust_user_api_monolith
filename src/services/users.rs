@@ -1,6 +1,7 @@
 use crate::db::PgPool;
-use crate::models::users_model::{NewUser, Users};
-use crate::schema::users::{self, email, name};
+use crate::models::users_model::{LoginUser, NewUser, Users};
+use crate::schema::users::{self, email, name, password};
+use diesel::result::Error::NotFound;
 use diesel::{prelude::*, result::Error};
 
 pub struct UserService(pub PgPool);
@@ -11,6 +12,7 @@ pub trait IUserRepository {
     async fn create_user(&self, new_user: NewUser) -> Result<Users, Error>;
     async fn update_user(&self, user_id: i32, new_user: NewUser) -> Result<Users, Error>;
     async fn delete_user(&self, user_id: i32) -> Result<bool, Error>;
+    async fn login(&self, new_user: LoginUser) -> Result<Users, Error>;
 }
 
 impl IUserRepository for UserService {
@@ -27,7 +29,8 @@ impl IUserRepository for UserService {
         let query = users::table
             .offset(offset)
             .limit(limit)
-            .order(users::id.asc()).load::<Users>(&mut conn);
+            .order(users::id.asc())
+            .load::<Users>(&mut conn);
 
         let res = match query {
             Ok(val) => Ok(val),
@@ -40,7 +43,11 @@ impl IUserRepository for UserService {
     async fn create_user(&self, new_user: NewUser) -> Result<Users, Error> {
         let mut conn = self.0.get().expect("couldn't get connection from pool");
         let user = diesel::insert_into(users::table)
-            .values((name.eq(new_user.name), email.eq(new_user.email)))
+            .values((
+                name.eq(new_user.name),
+                email.eq(new_user.email),
+                password.eq(new_user.password),
+            ))
             .get_result(&mut conn);
 
         let res: Result<Users, Error> = match user {
@@ -57,6 +64,7 @@ impl IUserRepository for UserService {
             .set((
                 users::name.eq(new_user.name),
                 users::email.eq(new_user.email),
+                users::password.eq(new_user.password),
             ))
             .get_result(&mut conn);
 
@@ -76,4 +84,26 @@ impl IUserRepository for UserService {
         }
     }
 
+    async fn login(&self, new_user: LoginUser) -> Result<Users, Error> {
+        let mut conn = self.0.get().expect("couldn't get connection from pool");
+        let user = users::table
+            .filter(email.eq(new_user.email))
+            .filter(password.eq(new_user.password))
+            .select(users::all_columns)
+            .first::<Users>(&mut conn);
+
+        let res: Result<Users, Error> = match user {
+            Ok(val) => Ok(val),
+            Err(err) => match err {
+                diesel::result::Error::NotFound => {
+                    return Err(Error::NotFound);
+                }
+                _ => {
+                    panic!("Database error - {}", err);
+                }
+            },
+        };
+
+        res
+    }
 }

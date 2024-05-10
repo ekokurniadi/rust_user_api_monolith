@@ -8,5 +8,6 @@ pub fn user_routes()->Vec<Route>{
         user_handler::create_user,
         user_handler::update_user,
         user_handler::delete_user,
+        user_handler::login_user,
     ]
 }
